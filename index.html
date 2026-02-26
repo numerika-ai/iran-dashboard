@@ -1,0 +1,1398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Iran Conflict Intelligence Dashboard - Radio Świętego Satoshiego × Arasaka Netrunners</title>
+
+    <!-- External Libraries -->
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.min.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: #0a0a0a;
+            color: #FFB000;
+            font-family: 'JetBrains Mono', monospace;
+            line-height: 1.4;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        /* Header and Branding */
+        .header {
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
+            border-bottom: 2px solid #FFB000;
+            padding: 20px 0;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+        }
+
+        .branding {
+            text-align: center;
+            margin-bottom: 15px;
+        }
+
+        .branding h1 {
+            font-size: clamp(20px, 4vw, 32px);
+            font-weight: 700;
+            color: #00FF41;
+            text-shadow: 0 0 10px rgba(0, 255, 65, 0.3);
+            margin-bottom: 5px;
+        }
+
+        .branding .subtitle {
+            font-size: clamp(14px, 2.5vw, 18px);
+            color: #00D4FF;
+            font-weight: 400;
+        }
+
+        /* DEFCON Banner */
+        .defcon-banner {
+            background: linear-gradient(90deg, #FF3131, #FF6B6B);
+            color: white;
+            padding: 15px 0;
+            text-align: center;
+            animation: pulse 2s infinite;
+            font-weight: 600;
+            font-size: clamp(16px, 3vw, 24px);
+            border: 2px solid #FF3131;
+            margin-bottom: 10px;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
+        }
+
+        .deadline-pulse {
+            animation: deadline-pulse 1.5s infinite;
+        }
+
+        @keyframes deadline-pulse {
+            0%, 100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+            50% {
+                opacity: 0.7;
+                transform: scale(1.2);
+            }
+        }
+
+        .quick-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .stat-card {
+            background: rgba(255, 176, 0, 0.05);
+            border: 1px solid #FFB000;
+            padding: 15px;
+            text-align: center;
+            border-radius: 5px;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: #00FF41;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #FFB000;
+        }
+
+        .stat-change {
+            font-size: 14px;
+            margin-top: 5px;
+        }
+
+        .positive { color: #00FF41; }
+        .negative { color: #FF3131; }
+
+        /* Section Styling */
+        .section {
+            margin: 40px 0;
+            background: rgba(255, 176, 0, 0.02);
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 30px;
+        }
+
+        .section-title {
+            font-size: 24px;
+            color: #FFB000;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border-bottom: 2px solid #FFB000;
+            padding-bottom: 10px;
+        }
+
+        /* Map Styling */
+        #map {
+            height: 500px;
+            width: 100%;
+            border: 2px solid #FFB000;
+            border-radius: 8px;
+        }
+
+        .leaflet-popup-content {
+            color: #000;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+        }
+
+        /* Timeline */
+        .timeline-container {
+            height: 400px;
+            overflow-x: auto;
+            border: 1px solid #333;
+            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.3);
+        }
+
+        /* Live Data Widgets */
+        .live-data-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .widget {
+            background: rgba(255, 176, 0, 0.05);
+            border: 1px solid #FFB000;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .widget-title {
+            font-size: 16px;
+            color: #FFB000;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+
+        .widget-value {
+            font-size: 28px;
+            font-weight: 700;
+            margin: 10px 0;
+        }
+
+        .widget-change {
+            font-size: 14px;
+            margin: 5px 0;
+        }
+
+        .sparkline {
+            height: 60px;
+            margin: 10px 0;
+        }
+
+        /* Scenario Cards */
+        .scenarios-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .scenario-card {
+            background: rgba(157, 78, 221, 0.1);
+            border: 1px solid #9D4EDD;
+            padding: 25px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .scenario-card:hover {
+            background: rgba(157, 78, 221, 0.2);
+            transform: translateY(-5px);
+        }
+
+        .scenario-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .scenario-name {
+            font-size: 18px;
+            font-weight: 600;
+            color: #9D4EDD;
+        }
+
+        .scenario-probability {
+            font-size: 20px;
+            font-weight: 700;
+            color: #00FF41;
+        }
+
+        .probability-bar {
+            height: 8px;
+            background: #333;
+            border-radius: 4px;
+            margin: 10px 0;
+            overflow: hidden;
+        }
+
+        .probability-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #9D4EDD, #00FF41);
+            transition: width 0.5s ease;
+        }
+
+        .market-impacts {
+            margin-top: 15px;
+        }
+
+        .impact-item {
+            display: flex;
+            justify-content: space-between;
+            margin: 8px 0;
+            font-size: 14px;
+        }
+
+        /* Predictions Tracker */
+        .predictions-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .predictions-table th,
+        .predictions-table td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid #333;
+        }
+
+        .predictions-table th {
+            background: rgba(255, 176, 0, 0.1);
+            color: #FFB000;
+            font-weight: 600;
+        }
+
+        .predictions-table td {
+            color: #ccc;
+        }
+
+        .confidence-high { color: #00FF41; }
+        .confidence-medium { color: #FFB000; }
+        .confidence-low { color: #FF3131; }
+
+        /* OSINT Grid */
+        .osint-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+        }
+
+        .osint-category {
+            background: rgba(0, 212, 255, 0.05);
+            border: 1px solid #00D4FF;
+            padding: 20px;
+            border-radius: 8px;
+        }
+
+        .osint-category h3 {
+            color: #00D4FF;
+            margin-bottom: 15px;
+            font-size: 16px;
+            text-transform: uppercase;
+        }
+
+        .osint-account {
+            margin: 10px 0;
+            padding: 8px;
+            background: rgba(0, 212, 255, 0.1);
+            border-radius: 4px;
+        }
+
+        .osint-account a {
+            color: #00D4FF;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .osint-account a:hover {
+            color: #00FF41;
+            text-decoration: underline;
+        }
+
+        .account-handle {
+            font-weight: 600;
+        }
+
+        .account-focus {
+            font-size: 12px;
+            color: #aaa;
+            margin-top: 5px;
+        }
+
+        /* Trading Playbook */
+        .playbook-tree {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 30px;
+            border-radius: 8px;
+            border: 1px solid #333;
+            font-family: 'JetBrains Mono', monospace;
+            white-space: pre-line;
+            font-size: 14px;
+            line-height: 1.6;
+            color: #ccc;
+        }
+
+        /* Historical Comparison */
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .comparison-table th,
+        .comparison-table td {
+            padding: 12px;
+            text-align: left;
+            border: 1px solid #333;
+        }
+
+        .comparison-table th {
+            background: rgba(255, 176, 0, 0.1);
+            color: #FFB000;
+        }
+
+        .comparison-table td {
+            color: #ccc;
+        }
+
+        /* Footer */
+        .footer {
+            margin-top: 60px;
+            padding: 40px 0;
+            border-top: 2px solid #FFB000;
+            text-align: center;
+            color: #666;
+        }
+
+        .footer-branding {
+            font-size: 18px;
+            color: #00FF41;
+            margin-bottom: 10px;
+        }
+
+        .footer-version {
+            margin: 10px 0;
+            font-size: 14px;
+        }
+
+        .footer-disclaimer {
+            font-size: 12px;
+            margin-top: 20px;
+            color: #999;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .container {
+                padding: 0 15px;
+            }
+
+            .section {
+                padding: 20px;
+                margin: 20px 0;
+            }
+
+            .live-data-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .scenarios-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .osint-grid {
+                grid-template-columns: 1fr;
+            }
+
+            #map {
+                height: 300px;
+            }
+
+            .timeline-container {
+                height: 300px;
+            }
+        }
+
+        /* Loading Animation */
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #333;
+            border-radius: 50%;
+            border-top-color: #FFB000;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Status Indicators */
+        .status-online { color: #00FF41; }
+        .status-warning { color: #FFB000; }
+        .status-error { color: #FF3131; }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #0a0a0a;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #FFB000;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #00FF41;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <div class="branding">
+                <h1>📡 RADIO ŚWIĘTEGO SATOSHIEGO × ARASAKA NETRUNNERS</h1>
+                <div class="subtitle">Iran Conflict Intelligence Dashboard — Live Monitoring</div>
+            </div>
+
+            <div class="defcon-banner">
+                🚨 DEFCON 2: ARMED FORCES READY TO DEPLOY IN 6 HOURS 🚨
+                <div style="font-size: 16px; margin-top: 5px;">
+                    Days remaining of Trump deadline: <span id="countdown">CALCULATING...</span>
+                    | Last updated: <span id="timestamp">Loading...</span>
+                </div>
+            </div>
+
+            <div class="quick-stats">
+                <div class="stat-card">
+                    <div class="stat-value" id="btc-price">Loading...</div>
+                    <div class="stat-label">BTC/USDT</div>
+                    <div class="stat-change" id="btc-change">--</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="oil-price">$66.48</div>
+                    <div class="stat-label">WTI Oil</div>
+                    <div class="stat-change positive">+2.3%</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="gold-price">$2,031</div>
+                    <div class="stat-label">Gold</div>
+                    <div class="stat-change positive">+0.8%</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="vix-price">18.4</div>
+                    <div class="stat-label">VIX</div>
+                    <div class="stat-change positive">+12.1%</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Situation Map -->
+        <div class="section">
+            <h2 class="section-title">🗺️ Situation Map</h2>
+            <div id="map"></div>
+
+            <!-- LIVE FEEDS Quick Access Bar -->
+            <div style="margin-top: 15px; background: rgba(255, 176, 0, 0.1); border: 2px solid #FFB000; border-radius: 8px; padding: 20px;">
+                <div style="text-align: center; margin-bottom: 15px;">
+                    <strong style="color: #FFB000; font-size: 18px;">🔴 LIVE FEEDS</strong>
+                </div>
+                <div style="display: flex; flex-wrap: wrap; gap: 12px; justify-content: center;">
+                    <a href="https://www.marinetraffic.com/en/ais/home/centerx:56.2/centery:26.5/zoom:8" target="_blank"
+                       style="background: #1a1a1a; border: 2px solid #FFB000; border-radius: 6px; padding: 12px 20px; text-decoration: none; color: #FFB000; font-weight: bold; font-size: 14px; display: flex; align-items: center; gap: 8px; transition: all 0.3s; min-width: 180px; justify-content: center;"
+                       onmouseover="this.style.background='#FFB000'; this.style.color='#000';"
+                       onmouseout="this.style.background='#1a1a1a'; this.style.color='#FFB000';">
+                        🚢 MarineTraffic Hormuz
+                    </a>
+                    <a href="https://www.flightradar24.com/25.5,56.2/6" target="_blank"
+                       style="background: #1a1a1a; border: 2px solid #FFB000; border-radius: 6px; padding: 12px 20px; text-decoration: none; color: #FFB000; font-weight: bold; font-size: 14px; display: flex; align-items: center; gap: 8px; transition: all 0.3s; min-width: 180px; justify-content: center;"
+                       onmouseover="this.style.background='#FFB000'; this.style.color='#000';"
+                       onmouseout="this.style.background='#1a1a1a'; this.style.color='#FFB000';">
+                        ✈️ FlightRadar24 Military
+                    </a>
+                    <a href="https://globe.adsbexchange.com/?lat=25.5&lon=56.2&zoom=5.5&showMil=true" target="_blank"
+                       style="background: #1a1a1a; border: 2px solid #FFB000; border-radius: 6px; padding: 12px 20px; text-decoration: none; color: #FFB000; font-weight: bold; font-size: 14px; display: flex; align-items: center; gap: 8px; transition: all 0.3s; min-width: 180px; justify-content: center;"
+                       onmouseover="this.style.background='#FFB000'; this.style.color='#000';"
+                       onmouseout="this.style.background='#1a1a1a'; this.style.color='#FFB000';">
+                        📡 ADS-B Exchange
+                    </a>
+                    <a href="https://liveuamap.com" target="_blank"
+                       style="background: #1a1a1a; border: 2px solid #FFB000; border-radius: 6px; padding: 12px 20px; text-decoration: none; color: #FFB000; font-weight: bold; font-size: 14px; display: flex; align-items: center; gap: 8px; transition: all 0.3s; min-width: 180px; justify-content: center;"
+                       onmouseover="this.style.background='#FFB000'; this.style.color='#000';"
+                       onmouseout="this.style.background='#1a1a1a'; this.style.color='#FFB000';">
+                        🗺️ LiveUAMap
+                    </a>
+                    <a href="https://www.iranintl.com/en" target="_blank"
+                       style="background: #1a1a1a; border: 2px solid #FFB000; border-radius: 6px; padding: 12px 20px; text-decoration: none; color: #FFB000; font-weight: bold; font-size: 14px; display: flex; align-items: center; gap: 8px; transition: all 0.3s; min-width: 180px; justify-content: center;"
+                       onmouseover="this.style.background='#FFB000'; this.style.color='#000';"
+                       onmouseout="this.style.background='#1a1a1a'; this.style.color='#FFB000';">
+                        📰 Iran International
+                    </a>
+                </div>
+            </div>
+
+            <div style="margin-top: 15px; font-size: 12px; color: #666;">
+                <strong>Legend:</strong> 🇺🇸 US Carriers | 🏭 US Bases | ☢️ Iran Nuclear Sites | ⭐ Strait of Hormuz
+                <br><strong>Data Sources:</strong> BBC Verify, MarineTraffic AIS, OSINT community
+            </div>
+        </div>
+
+        <!-- Timeline -->
+        <div class="section">
+            <h2 class="section-title">📅 Event Timeline (Feb-Mar 2026)</h2>
+            <div class="timeline-container">
+                <div id="timeline"></div>
+            </div>
+        </div>
+
+        <!-- Live Market Data -->
+        <div class="section">
+            <h2 class="section-title">📈 Live Market Data</h2>
+            <div class="live-data-grid">
+                <div class="widget">
+                    <div class="widget-title">Bitcoin Funding Rate</div>
+                    <div class="widget-value" id="funding-rate">Loading...</div>
+                    <div class="widget-change" id="funding-change">--</div>
+                    <div class="sparkline">
+                        <canvas id="funding-sparkline"></canvas>
+                    </div>
+                </div>
+                <div class="widget">
+                    <div class="widget-title">BTC Open Interest</div>
+                    <div class="widget-value" id="open-interest">Loading...</div>
+                    <div class="widget-change" id="oi-change">--</div>
+                    <div class="sparkline">
+                        <canvas id="oi-sparkline"></canvas>
+                    </div>
+                </div>
+                <div class="widget">
+                    <div class="widget-title">Long/Short Ratio</div>
+                    <div class="widget-value" id="long-short-ratio">Loading...</div>
+                    <div class="widget-change" id="ls-change">--</div>
+                    <div class="sparkline">
+                        <canvas id="ls-sparkline"></canvas>
+                    </div>
+                </div>
+                <div class="widget">
+                    <div class="widget-title">Oil Market Intel</div>
+                    <div style="font-size: 14px; text-align: left; color: #ccc;">
+                        <div>• Saudi exports: <span class="positive">7.3M bpd (3-year high)</span></div>
+                        <div>• Bahri charters: <span class="positive">5 supertankers @ $200K/day</span></div>
+                        <div>• US inventory: <span class="positive">+11.4M barrels</span></div>
+                        <div>• OPEC+ meeting: <span class="status-warning">Mar 1</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Scenario Analysis -->
+        <div class="section">
+            <h2 class="section-title">🎯 Scenario Analysis</h2>
+            <div class="scenarios-grid" id="scenarios"></div>
+        </div>
+
+        <!-- Predictions vs Reality -->
+        <div class="section">
+            <h2 class="section-title">🔮 Predictions vs Reality Tracker</h2>
+            <table class="predictions-table">
+                <thead>
+                    <tr>
+                        <th>Our Prediction</th>
+                        <th>Confidence</th>
+                        <th>Timeframe</th>
+                        <th>What Happened</th>
+                    </tr>
+                </thead>
+                <tbody id="predictions-table"></tbody>
+            </table>
+        </div>
+
+        <!-- OSINT Monitoring -->
+        <div class="section">
+            <h2 class="section-title">👁️ OSINT Monitoring Guide</h2>
+            <div class="osint-grid" id="osint-grid"></div>
+
+            <div style="margin-top: 30px;">
+                <h3 style="color: #00D4FF; margin-bottom: 15px;">Key Websites to Monitor</h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">
+                    <div class="osint-account">
+                        <a href="https://www.marinetraffic.com" target="_blank">MarineTraffic.com</a>
+                        <div class="account-focus">Ship tracking — Strait of Hormuz live</div>
+                    </div>
+                    <div class="osint-account">
+                        <a href="https://www.flightradar24.com" target="_blank">FlightRadar24.com</a>
+                        <div class="account-focus">Military flights, Arabian Sea filter</div>
+                    </div>
+                    <div class="osint-account">
+                        <a href="https://globe.adsbexchange.com" target="_blank">ADS-B Exchange</a>
+                        <div class="account-focus">Unfiltered military tracking</div>
+                    </div>
+                    <div class="osint-account">
+                        <a href="https://liveuamap.com" target="_blank">liveuamap.com</a>
+                        <div class="account-focus">Conflict map, real-time events</div>
+                    </div>
+                    <div class="osint-account">
+                        <a href="https://www.iranintl.com/en" target="_blank">Iran International</a>
+                        <div class="account-focus">Iranian opposition media</div>
+                    </div>
+                    <div class="osint-account">
+                        <a href="https://spotlight.ebu.ch/p/iran-armada-osint-intelligence-guide" target="_blank">EBU OSINT Guide</a>
+                        <div class="account-focus">Iran armada tracking methodology</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Twitter/X Live Feeds -->
+            <div style="margin-top: 30px;">
+                <h3 style="color: #00D4FF; margin-bottom: 15px;">🐦 Key OSINT Twitter/X Feeds</h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 30px;">
+                    <div style="background: #1a1a1a; border: 1px solid #FFB000; border-radius: 8px; padding: 20px; cursor: pointer;" onclick="window.open('https://x.com/sentdefender', '_blank')">
+                        <h4 style="color: #00D4FF; margin-bottom: 10px;">@sentdefender</h4>
+                        <p style="color: #888; font-size: 13px; margin-bottom: 15px;">Breaking military conflicts, real-time monitoring</p>
+                        <div style="background: #FFB000; color: #000; padding: 8px 16px; border-radius: 4px; text-align: center; font-weight: bold; font-size: 12px;">View Live Feed →</div>
+                    </div>
+                    <div style="background: #1a1a1a; border: 1px solid #FFB000; border-radius: 8px; padding: 20px; cursor: pointer;" onclick="window.open('https://x.com/AuroraIntel', '_blank')">
+                        <h4 style="color: #00D4FF; margin-bottom: 10px;">@AuroraIntel</h4>
+                        <p style="color: #888; font-size: 13px; margin-bottom: 15px;">Military intelligence & geospatial analysis</p>
+                        <div style="background: #FFB000; color: #000; padding: 8px 16px; border-radius: 4px; text-align: center; font-weight: bold; font-size: 12px;">View Live Feed →</div>
+                    </div>
+                    <div style="background: #1a1a1a; border: 1px solid #FFB000; border-radius: 8px; padding: 20px; cursor: pointer;" onclick="window.open('https://x.com/TankerTrackers', '_blank')">
+                        <h4 style="color: #00D4FF; margin-bottom: 10px;">@TankerTrackers</h4>
+                        <p style="color: #888; font-size: 13px; margin-bottom: 15px;">Oil tanker movements & maritime intelligence</p>
+                        <div style="background: #FFB000; color: #000; padding: 8px 16px; border-radius: 4px; text-align: center; font-weight: bold; font-size: 12px;">View Live Feed →</div>
+                    </div>
+                </div>
+
+                <!-- Twitter Timeline Embeds (fallback if available) -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; height: 400px; overflow: hidden;">
+                    <div style="border: 1px solid #333; border-radius: 8px; overflow: hidden;">
+                        <a class="twitter-timeline" data-theme="dark" data-chrome="noheader nofooter" data-height="400" href="https://twitter.com/sentdefender?ref_src=twsrc%5Etfw">@sentdefender</a>
+                    </div>
+                    <div style="border: 1px solid #333; border-radius: 8px; overflow: hidden;">
+                        <a class="twitter-timeline" data-theme="dark" data-chrome="noheader nofooter" data-height="400" href="https://twitter.com/AuroraIntel?ref_src=twsrc%5Etfw">@AuroraIntel</a>
+                    </div>
+                    <div style="border: 1px solid #333; border-radius: 8px; overflow: hidden;">
+                        <a class="twitter-timeline" data-theme="dark" data-chrome="noheader nofooter" data-height="400" href="https://twitter.com/TankerTrackers?ref_src=twsrc%5Etfw">@TankerTrackers</a>
+                    </div>
+                </div>
+                <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+            </div>
+
+            <div style="margin-top: 30px; background: rgba(255, 49, 49, 0.1); padding: 20px; border-radius: 8px; border: 1px solid #FF3131;">
+                <h3 style="color: #FF3131; margin-bottom: 15px;">🚨 CRITICAL SIGNALS TO WATCH</h3>
+                <div style="columns: 2; column-gap: 30px; font-size: 14px; color: #ccc;">
+                    <div>• B-2 Spirit flights from Whiteman AFB, Missouri</div>
+                    <div>• NOTAM closures over Iran/Gulf</div>
+                    <div>• Tanker evacuation from Hormuz</div>
+                    <div>• Additional embassy evacuations</div>
+                    <div>• Rubio Israel visit extension</div>
+                    <div>• Ford carrier position updates</div>
+                    <div>• Iran IRGC live-fire drills</div>
+                    <div>• Insurance rates for Gulf shipping</div>
+                    <div>• CME oil futures gaps</div>
+                    <div>• Bitcoin orderbook depth changes</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Trading Playbook -->
+        <div class="section">
+            <h2 class="section-title">📊 Trading Playbook Decision Tree</h2>
+            <div class="playbook-tree">Geneva Talks Result (Feb 27)
+├── 🔴 FAIL → High Alert
+│   ├── Rubio in Israel (Feb 28) extends visit?
+│   │   ├── ✅ YES → DEFCON 1, expect weekend attack
+│   │   │   → 🎯 ACTION: Cash 60%, Gold long, BTC stablecoins ready
+│   │   └── ❌ NO → Wait for deadline (Mar 1-5)
+│   └── NOTAM + B-2 detected?
+│       ├── ✅ YES → IMMINENT (hours)
+│       │   → 🚨 ACTION: All cash, wait for dip
+│       └── ❌ NO → Monitoring mode
+├── 🟡 PARTIAL → Lower probability
+│   → 🎯 ACTION: Maintain 40% cash, light hedges
+└── 🟢 SUCCESS (deal) → Risk-on
+    → 🚀 ACTION: Long BTC, long equities, short gold
+
+💡 Key Trading Levels:
+• BTC buy zone: $72-80K (if current ~$85-90K)
+• Oil long target: $80-90+ on attack
+• Gold target: $2,500+ on escalation
+• Recovery timeframe: 7-10 days for limited strike</div>
+        </div>
+
+        <!-- Historical Comparison -->
+        <div class="section">
+            <h2 class="section-title">📚 Historical Comparison</h2>
+            <table class="comparison-table">
+                <thead>
+                    <tr>
+                        <th>Metric</th>
+                        <th>Midnight Hammer (Jun 2025)</th>
+                        <th>Current Buildup (Feb 2026)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td>Carriers</td><td>2 strike groups</td><td>2 strike groups</td></tr>
+                    <tr><td>Destroyers</td><td>5 (Med + Red Sea) + 3 Gulf</td><td>12 ships tracked (BBC)</td></tr>
+                    <tr><td>Fighter jets</td><td>120+</td><td>120+ (F-35, F-22, F-15E, F-16)</td></tr>
+                    <tr><td>AWACS</td><td>Yes</td><td>Yes (E-3 Sentry deployed)</td></tr>
+                    <tr><td>Nuclear bombers</td><td>B-2 from Missouri</td><td>TBD</td></tr>
+                    <tr><td>Embassy evacuations</td><td>Several</td><td>8+ countries</td></tr>
+                    <tr><td>Oil price pre-attack</td><td>~$65</td><td>$66-71</td></tr>
+                    <tr><td>BTC pre-attack</td><td>~$80K</td><td>~$85-88K</td></tr>
+                    <tr><td>Diplomatic cover</td><td>Ongoing talks</td><td>Geneva 3rd round</td></tr>
+                    <tr><td>Expert assessment</td><td colspan="2">"More depth and sustainability" (Justin Crump, Sibylline)</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Carrier Positions Detail -->
+        <div class="section">
+            <h2 class="section-title">🚢 Carrier Positions Detail</h2>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px;">
+                <div style="background: rgba(0, 255, 65, 0.1); border: 1px solid #00FF41; padding: 20px; border-radius: 8px;">
+                    <h3 style="color: #00FF41; margin-bottom: 15px;">🇺🇸 USS Abraham Lincoln (CVN-72)</h3>
+                    <div style="font-size: 14px; color: #ccc;">
+                        <div><strong>Class:</strong> Nimitz-class</div>
+                        <div><strong>Position:</strong> Arabian Sea, ~240km off Oman coast</div>
+                        <div><strong>Status:</strong> On station (confirmed Feb 22, satellite)</div>
+                        <div><strong>Strike Group:</strong> 3x Arleigh Burke destroyers</div>
+                        <div><strong>Air Wing:</strong> F/A-18E/F Super Hornets, EA-18G Growlers, E-2D Hawkeye</div>
+                        <div><strong>Crew:</strong> 5,600</div>
+                        <div style="margin-top: 15px; padding-top: 10px; border-top: 1px solid #00FF41;">
+                            <strong>🔗 Live Tracking:</strong><br>
+                            <a href="https://www.marinetraffic.com/en/ais/home/centerx:59.8/centery:22.5/zoom:7" target="_blank" style="color: #00FF41; text-decoration: none;">📍 MarineTraffic (CVN-72 MMSI)</a>
+                        </div>
+                    </div>
+                </div>
+                <div style="background: rgba(0, 212, 255, 0.1); border: 1px solid #00D4FF; padding: 20px; border-radius: 8px;">
+                    <h3 style="color: #00D4FF; margin-bottom: 15px;">🇺🇸 USS Gerald R. Ford (CVN-78)</h3>
+                    <div style="font-size: 14px; color: #ccc;">
+                        <div><strong>Class:</strong> Ford-class (largest carrier)</div>
+                        <div><strong>Position:</strong> Mediterranean, heading east</div>
+                        <div><strong>Status:</strong> In transit (passed Gibraltar Feb 20)</div>
+                        <div><strong>ETA:</strong> Mar 5-10 (Middle East)</div>
+                        <div><strong>Air Wing:</strong> CAW-8: 4x F/A-18E/F squadrons, EA-18G, E-2D</div>
+                        <div><strong>Crew:</strong> 5,600</div>
+                        <div style="margin-top: 15px; padding-top: 10px; border-top: 1px solid #00D4FF;">
+                            <strong>🔗 Live Tracking:</strong><br>
+                            <a href="https://www.marinetraffic.com/en/ais/home/centerx:28.0/centery:34.5/zoom:7" target="_blank" style="color: #00D4FF; text-decoration: none;">📍 MarineTraffic (CVN-78)</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div style="margin-top: 20px; font-size: 14px; color: #666;">
+                <strong>Total US Ships:</strong> 12 tracked by BBC Verify
+                <br><strong>Distribution:</strong> Arabian Sea (4), Mediterranean (3), Bahrain (3), Souda Bay (2), Red Sea (1)
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+        <div class="container">
+            <div class="footer-branding">📡 Radio Świętego Satoshiego × Arasaka Netrunners</div>
+            <div class="footer-version">Intelligence Dashboard v1.0 — Last Updated: <span id="footer-timestamp"></span></div>
+            <div>Data sources: BBC Verify, Bloomberg, Binance, Al Jazeera, Army Recognition, OSINT community</div>
+            <div class="footer-disclaimer">
+                ⚠️ This is analysis, not financial advice. Trade at your own risk.<br>
+                Positions updated from open sources. Exact military positions may differ.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Dashboard data (embedded)
+        const dashboardData = {
+            "meta": {
+                "title": "Iran Conflict Intelligence Dashboard",
+                "version": "1.0",
+                "generated": "2026-02-26T12:10:00Z",
+                "branding": {
+                    "primary": "Radio Świętego Satoshiego",
+                    "secondary": "Arasaka Netrunners"
+                }
+            },
+            "threat_level": {
+                "level": 2,
+                "label": "DEFCON 2",
+                "description": "Armed Forces Ready to Deploy in 6 hours",
+                "trump_deadline_start": "2026-02-19",
+                "trump_deadline_days": "10-15",
+                "trump_deadline_end_estimate": "2026-03-05"
+            },
+            "carrier_positions": [
+                {
+                    "name": "USS Abraham Lincoln (CVN-72)",
+                    "class": "Nimitz-class",
+                    "position": { "lat": 22.5, "lng": 59.8 },
+                    "position_note": "Arabian Sea, ~240km off Oman coast",
+                    "confirmed": "2026-02-22",
+                    "source": "BBC Verify / Sentinel-2 satellite",
+                    "strike_group": ["3x Arleigh Burke destroyers"],
+                    "air_wing": ["F/A-18E/F Super Hornets", "EA-18G Growlers", "E-2D Hawkeye"],
+                    "crew": 5600,
+                    "status": "On station"
+                },
+                {
+                    "name": "USS Gerald R. Ford (CVN-78)",
+                    "class": "Ford-class (largest carrier)",
+                    "position": { "lat": 34.5, "lng": 28.0 },
+                    "position_note": "Eastern Mediterranean near Crete/Rhodes, heading toward Suez. Estimated position as of Feb 26 based on transit speed (~15-20 knots from Gibraltar Feb 20)",
+                    "confirmed": "2026-02-26",
+                    "source": "BBC Verify / MarineTraffic AIS + Gibraltar photos",
+                    "strike_group": ["Several guided missile destroyers"],
+                    "air_wing": ["CAW-8: 4x F/A-18E/F squadrons", "EA-18G Growlers", "E-2D Hawkeye"],
+                    "crew": 5600,
+                    "eta_middle_east": "2026-03-05 to 2026-03-10",
+                    "status": "In transit"
+                }
+            ],
+            "bases": [
+                { "name": "Al Udeid Air Base", "country": "Qatar", "lat": 25.117, "lng": 51.315, "assets": "F-15E Strike Eagles, AWACS, tankers" },
+                { "name": "Al Dhafra Air Base", "country": "UAE", "lat": 24.248, "lng": 54.547, "assets": "F-35, F-22, reconnaissance" },
+                { "name": "Bahrain Naval Station", "country": "Bahrain", "lat": 26.217, "lng": 50.608, "assets": "5th Fleet HQ, 3 combat ships" },
+                { "name": "Camp Lemonnier", "country": "Djibouti", "lat": 11.547, "lng": 43.145, "assets": "P-8A patrol, drones" },
+                { "name": "NSA Souda Bay", "country": "Greece (Crete)", "lat": 35.486, "lng": 24.116, "assets": "2 destroyers, logistics" },
+                { "name": "Diego Garcia", "country": "BIOT", "lat": -7.316, "lng": 72.410, "assets": "B-2 staging (UK refused access)" },
+                { "name": "Whiteman AFB", "country": "USA (Missouri)", "lat": 38.730, "lng": -93.548, "assets": "B-2 Spirit bombers (20 aircraft)" }
+            ],
+            "iran_nuclear_sites": [
+                { "name": "Fordow (FDO)", "lat": 34.886, "lng": 51.993, "type": "Underground enrichment", "depth": "80m under mountain" },
+                { "name": "Natanz (FEP)", "lat": 33.724, "lng": 51.727, "type": "Main enrichment facility", "note": "Partially underground" },
+                { "name": "Isfahan (UCF)", "lat": 32.682, "lng": 51.689, "type": "Uranium conversion", "note": "Above ground" },
+                { "name": "Arak (IR-40)", "lat": 34.381, "lng": 49.243, "type": "Heavy water reactor", "note": "Redesigned" },
+                { "name": "Bushehr", "lat": 28.831, "lng": 50.888, "type": "Nuclear power plant", "note": "Russian-built, civilian" },
+                { "name": "Parchin", "lat": 35.524, "lng": 51.773, "type": "Military/weapons research", "note": "Suspected weaponization" }
+            ],
+            "strait_of_hormuz": {
+                "lat": 26.56,
+                "lng": 56.25,
+                "daily_oil_flow_mbpd": 20,
+                "pct_global_oil": 20,
+                "pct_global_lng": 20,
+                "annual_value_usd": "500B",
+                "iran_export_mbpd": 1.7,
+                "iran_export_pct_china": 90,
+                "kharg_island": { "lat": 29.233, "lng": 50.316, "note": "Iran main oil export terminal" }
+            },
+            "timeline": [
+                { "date": "2026-02-06", "event": "Tankers speeding through Hormuz on Iran tensions", "category": "shipping", "source": "Insurance Journal" },
+                { "date": "2026-02-13", "event": "Ford carrier ordered to Middle East from Caribbean", "category": "military", "severity": "high" },
+                { "date": "2026-02-19", "event": "Trump: '10-15 days for deal or military action'", "category": "diplomatic", "severity": "critical" },
+                { "date": "2026-02-20", "event": "Ford passes Strait of Gibraltar into Mediterranean", "category": "military", "severity": "high", "source": "BBC Verify" },
+                { "date": "2026-02-22", "event": "Lincoln spotted off Oman by Sentinel-2 satellite", "category": "military", "source": "BBC Verify" },
+                { "date": "2026-02-24", "event": "IRGC live-fire drills in Strait of Hormuz", "category": "military", "severity": "high" },
+                { "date": "2026-02-24", "event": "Iran-Russia naval drills in Gulf of Oman", "category": "military" },
+                { "date": "2026-02-25", "event": "Saudi oil exports surge to 7.3M bpd (3-year high)", "category": "market", "severity": "high", "source": "Bloomberg" },
+                { "date": "2026-02-25", "event": "Saudi Bahri charters 5 supertankers at $200K/day", "category": "shipping", "severity": "high", "source": "gCaptain" },
+                { "date": "2026-02-25", "event": "Trump State of the Union: Iran nuclear threats", "category": "diplomatic", "severity": "high" },
+                { "date": "2026-02-25", "event": "8+ countries urge citizens to leave Iran", "category": "diplomatic", "severity": "critical" },
+                { "date": "2026-02-26", "event": "Geneva talks 3rd round (Witkoff/Kushner + Araghchi + Oman mediator)", "category": "diplomatic", "severity": "critical" },
+                { "date": "2026-02-28", "event": "Rubio visits Israel — Netanyahu meeting", "category": "diplomatic", "severity": "critical", "note": "Pattern match: coordination before Midnight Hammer" },
+                { "date": "2026-03-01", "event": "OPEC+ meeting — output decision", "category": "market" },
+                { "date": "2026-03-01", "event": "TRUMP DEADLINE BEGINS EXPIRING", "category": "deadline", "severity": "critical" },
+                { "date": "2026-03-05", "event": "TRUMP DEADLINE FINAL DAY (conservative estimate)", "category": "deadline", "severity": "critical" },
+                { "date": "2026-03-05", "event": "Ford carrier estimated arrival Middle East (earliest)", "category": "military", "severity": "high" }
+            ],
+            "scenarios": [
+                {
+                    "id": "A",
+                    "name": "Limited Strike (Midnight Hammer 2.0)",
+                    "probability": "40-50%",
+                    "probability_val": 0.45,
+                    "description": "Targeted strikes on nuclear facilities (Fordow, Natanz, Isfahan), IRGC bases, missile production. Night attack, B-2 + Tomahawk, 1-3 days. Iran retaliates but limited.",
+                    "triggers": ["Geneva talks fail", "NOTAM closures detected", "B-2 flights from Whiteman", "Rubio extends Israel visit"],
+                    "market_impact": {
+                        "btc": { "range": "-8% to -15%", "timeframe": "24-48h, recovery 7-10 days" },
+                        "oil": { "range": "+$10-15 (to $75-85)", "timeframe": "24-48h spike" },
+                        "gold": { "range": "+3-5%", "timeframe": "24h, holds for weeks" },
+                        "sp500": { "range": "-3-5% gap down", "timeframe": "Recovery 1-2 weeks" },
+                        "dxy": { "range": "+1-2%", "timeframe": "Few days" }
+                    },
+                    "precedent": "Operation Midnight Hammer (June 22, 2025)"
+                },
+                {
+                    "id": "B",
+                    "name": "Broad Conflict (Hormuz Closure)",
+                    "probability": "15-25%",
+                    "probability_val": 0.20,
+                    "description": "Iran closes Strait of Hormuz (mines, boats, missiles). Attacks on tankers and US bases. Houthi attack Bab al-Mandab. Multi-week conflict.",
+                    "triggers": ["Iran retaliates massively", "Hormuz NOTAM closure", "Tanker attacks", "Houthi escalation"],
+                    "market_impact": {
+                        "btc": { "range": "-15% to -25% crash", "timeframe": "Days, then recovery weeks" },
+                        "oil": { "range": "+$20-40 (to $90-110)", "timeframe": "Days to weeks" },
+                        "gold": { "range": "+10-15% (new ATH)", "timeframe": "Weeks" },
+                        "sp500": { "range": "-7-12%", "timeframe": "Weeks to recovery" },
+                        "shipping": { "range": "+200-400%", "timeframe": "Immediate" }
+                    },
+                    "precedent": "12-day Israel-Iran war (June 13-24, 2025)"
+                },
+                {
+                    "id": "C",
+                    "name": "Deal / De-escalation",
+                    "probability": "15-25%",
+                    "probability_val": 0.20,
+                    "description": "Geneva breakthrough. Iran accepts enrichment limits. Military de-escalation. Sanctions relief.",
+                    "triggers": ["Geneva positive outcome", "Iran concessions on enrichment", "Military drawdown signals"],
+                    "market_impact": {
+                        "btc": { "range": "+5-10% risk-on rally", "timeframe": "Days to week" },
+                        "oil": { "range": "-$5-8 (geopolitical premium gone)", "timeframe": "Days" },
+                        "gold": { "range": "-2-3%", "timeframe": "Days" },
+                        "sp500": { "range": "+2-3%", "timeframe": "Days" }
+                    },
+                    "precedent": "Iran nuclear deal (JCPOA 2015)"
+                },
+                {
+                    "id": "D",
+                    "name": "Prolonged Tensions (Status Quo)",
+                    "probability": "10-15%",
+                    "probability_val": 0.125,
+                    "description": "More rounds of talks, continued buildup, no resolution. Markets in limbo, low volume drift.",
+                    "triggers": ["Deadline passes without action", "New talks scheduled", "Ford arrives but no strike"],
+                    "market_impact": {
+                        "btc": { "range": "±3%", "timeframe": "Gradual" },
+                        "oil": { "range": "±$3", "timeframe": "Range-bound" },
+                        "gold": { "range": "±1%", "timeframe": "Slow drift" },
+                        "sp500": { "range": "Low vol drift", "timeframe": "Weeks" }
+                    },
+                    "precedent": "2019-2020 Iran tensions (pre-Soleimani)"
+                }
+            ],
+            "predictions": [
+                { "id": 1, "prediction": "BTC will dip 8-15% on initial attack announcement", "confidence": "HIGH", "timeframe": "Within 24h of attack", "result": null },
+                { "id": 2, "prediction": "Oil will spike to $80+ within 24h of attack", "confidence": "HIGH", "timeframe": "24h", "result": null },
+                { "id": 3, "prediction": "BTC recovery within 7-10 days (if limited strike)", "confidence": "MEDIUM", "timeframe": "10 days post-attack", "result": null },
+                { "id": 4, "prediction": "Saudi will increase output to cap oil upside", "confidence": "HIGH (already happening)", "timeframe": "Already confirmed", "result": "CONFIRMED — 7.3M bpd" },
+                { "id": 5, "prediction": "Funding rate will go negative before attack weekend", "confidence": "MEDIUM", "timeframe": "48h before", "result": null },
+                { "id": 6, "prediction": "Attack most likely on weekend (Sat night/Sun) Mar 1-2 or Mar 8-9", "confidence": "MEDIUM", "timeframe": "If Geneva fails", "result": null },
+                { "id": 7, "prediction": "Geneva talks will NOT produce a deal", "confidence": "HIGH", "timeframe": "Feb 27", "result": null },
+                { "id": 8, "prediction": "Gold will hit new highs on attack ($2,500+)", "confidence": "MEDIUM-HIGH", "timeframe": "Within week of attack", "result": null }
+            ],
+            "osint_accounts": {
+                "military_tracking": [
+                    { "handle": "@AuroraIntel", "platform": "X", "focus": "Military flight tracking", "url": "https://x.com/AuroraIntel" },
+                    { "handle": "@MT_Anderson", "platform": "X", "focus": "Military tracking, OSINT", "url": "https://x.com/MT_Anderson" },
+                    { "handle": "@detlopp", "platform": "X", "focus": "US military flight tracking", "url": "https://x.com/detlopp" },
+                    { "handle": "@Military_Flight", "platform": "X", "focus": "Military Air Tracking Alliance", "url": "https://x.com/Military_Flight" },
+                    { "handle": "@OSABORNER", "platform": "X", "focus": "Flight tracking", "url": "https://x.com/OSABORNER" }
+                ],
+                "iran_specialists": [
+                    { "handle": "@Farzin_Nadimi", "platform": "X", "focus": "Iran military analyst (Washington Institute)", "url": "https://x.com/Farzin_Nadimi" },
+                    { "handle": "@BabakTaghvaee1", "platform": "X", "focus": "Iranian defense journalist", "url": "https://x.com/BabakTaghvaee1" },
+                    { "handle": "@Nrg8000", "platform": "X", "focus": "IRGC/Iran specialist", "url": "https://x.com/Nrg8000" }
+                ],
+                "shipping_oil": [
+                    { "handle": "@TankerTrackers", "platform": "X", "focus": "Oil tanker movements", "url": "https://x.com/TankerTrackers" },
+                    { "handle": "@GerjonS", "platform": "X", "focus": "Shipping/tanker tracking", "url": "https://x.com/GerjonS" }
+                ],
+                "general_osint": [
+                    { "handle": "@sentdefender", "platform": "X", "focus": "Conflict monitoring", "url": "https://x.com/sentdefender" },
+                    { "handle": "@OAlexanderDK", "platform": "X", "focus": "War tracking", "url": "https://x.com/OAlexanderDK" },
+                    { "handle": "@LOLORADO18", "platform": "X", "focus": "Real-time military OSINT", "url": "https://x.com/LOLORADO18" },
+                    { "handle": "@Osint613", "platform": "X", "focus": "Open Source Intel", "url": "https://x.com/Osint613" },
+                    { "handle": "@planet4589", "platform": "X", "focus": "Satellite/orbital tracking", "url": "https://x.com/planet4589" }
+                ]
+            }
+        };
+
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeDashboard();
+            initializeMap();
+            initializeTimeline();
+            loadScenarios();
+            loadPredictions();
+            loadOSINTAccounts();
+            updateTimestamp();
+
+            // Start data refresh intervals
+            fetchMarketData();
+            setInterval(fetchMarketData, 30000); // 30 seconds
+            setInterval(updateTimestamp, 60000); // 1 minute
+        });
+
+        function initializeDashboard() {
+            // Update countdown
+            updateCountdown();
+            setInterval(updateCountdown, 3600000); // Update every hour
+        }
+
+        function updateCountdown() {
+            const deadline = new Date('2026-03-05T00:00:00Z');
+            const now = new Date();
+            const diff = deadline - now;
+            const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+
+            const countdownElement = document.getElementById('countdown');
+            if (days > 0) {
+                countdownElement.textContent = days;
+                countdownElement.style.color = days <= 3 ? '#FF3131' : '#FFB000';
+            } else {
+                countdownElement.textContent = 'EXPIRED';
+                countdownElement.style.color = '#FF3131';
+            }
+        }
+
+        function updateTimestamp() {
+            const now = new Date().toISOString().replace('T', ' ').substring(0, 19) + ' UTC';
+            document.getElementById('timestamp').textContent = now;
+            document.getElementById('footer-timestamp').textContent = now;
+        }
+
+        function initializeMap() {
+            // Fix Leaflet default marker icons
+            delete L.Icon.Default.prototype._getIconUrl;
+            L.Icon.Default.mergeOptions({
+                iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
+                iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
+                shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+            });
+
+            // Initialize Leaflet map
+            const map = L.map('map').setView([26.0, 55.0], 5);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+
+            // Add carriers
+            dashboardData.carrier_positions.forEach(carrier => {
+                let trackingLinks = '';
+                if (carrier.name.includes('Abraham Lincoln')) {
+                    trackingLinks = `<br><br><strong>🔗 Live Tracking:</strong><br>
+                        <a href="https://www.marinetraffic.com/en/ais/home/centerx:59.8/centery:22.5/zoom:7" target="_blank" style="color: #0066cc;">MarineTraffic (CVN-72)</a>`;
+                } else if (carrier.name.includes('Gerald R. Ford')) {
+                    trackingLinks = `<br><br><strong>🔗 Live Tracking:</strong><br>
+                        <a href="https://www.marinetraffic.com/en/ais/home/centerx:28.0/centery:34.5/zoom:7" target="_blank" style="color: #0066cc;">MarineTraffic (CVN-78)</a>`;
+                }
+
+                const carrierIcon = L.divIcon({
+                    html: '<div style="background-color: #0066FF; border: 2px solid #00D4FF; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 20px; cursor: pointer;">🚢</div>',
+                    className: 'custom-div-icon',
+                    iconSize: [40, 40],
+                    iconAnchor: [20, 20]
+                });
+
+                const marker = L.marker([carrier.position.lat, carrier.position.lng], {icon: carrierIcon})
+                    .bindPopup(`
+                        <strong>🇺🇸 ${carrier.name}</strong><br>
+                        <strong>Class:</strong> ${carrier.class}<br>
+                        <strong>Status:</strong> ${carrier.status}<br>
+                        <strong>Position:</strong> ${carrier.position_note}<br>
+                        <strong>Confirmed:</strong> ${carrier.confirmed}<br>
+                        <strong>Source:</strong> ${carrier.source}${trackingLinks}
+                    `);
+                marker.addTo(map);
+            });
+
+            // Add US bases
+            dashboardData.bases.forEach(base => {
+                const baseIcon = L.divIcon({
+                    html: '<div style="background-color: #0066cc; border: 2px solid #ffffff; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 16px; cursor: pointer;">🏭</div>',
+                    className: 'custom-div-icon',
+                    iconSize: [32, 32],
+                    iconAnchor: [16, 16]
+                });
+
+                const marker = L.marker([base.lat, base.lng], {icon: baseIcon}).bindPopup(`
+                    <strong>🏭 ${base.name}</strong><br>
+                    <strong>Country:</strong> ${base.country}<br>
+                    <strong>Assets:</strong> ${base.assets}
+                `);
+                marker.addTo(map);
+            });
+
+            // Add Iran nuclear sites
+            dashboardData.iran_nuclear_sites.forEach(site => {
+                const nuclearIcon = L.divIcon({
+                    html: '<div style="background-color: #ff0000; border: 2px solid #ffffff; border-radius: 50%; width: 35px; height: 35px; display: flex; align-items: center; justify-content: center; font-size: 18px; cursor: pointer;">☢️</div>',
+                    className: 'custom-div-icon',
+                    iconSize: [35, 35],
+                    iconAnchor: [17, 17]
+                });
+
+                const marker = L.marker([site.lat, site.lng], {icon: nuclearIcon}).bindPopup(`
+                    <strong>☢️ ${site.name}</strong><br>
+                    <strong>Type:</strong> ${site.type}<br>
+                    <strong>Note:</strong> ${site.note || site.depth || 'N/A'}
+                `);
+                marker.addTo(map);
+            });
+
+            // Add Strait of Hormuz
+            const hormuzIcon = L.divIcon({
+                html: '<div style="background-color: #FFB000; border: 2px solid #ff6600; border-radius: 50%; width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; font-size: 20px; cursor: pointer;">⭐</div>',
+                className: 'custom-div-icon',
+                iconSize: [38, 38],
+                iconAnchor: [19, 19]
+            });
+
+            const hormuzMarker = L.marker([dashboardData.strait_of_hormuz.lat, dashboardData.strait_of_hormuz.lng], {icon: hormuzIcon})
+                .bindPopup(`
+                    <strong>⭐ Strait of Hormuz</strong><br>
+                    <strong>Oil Flow:</strong> ${dashboardData.strait_of_hormuz.daily_oil_flow_mbpd}M bpd<br>
+                    <strong>Global Oil:</strong> ${dashboardData.strait_of_hormuz.pct_global_oil}%<br>
+                    <strong>Global LNG:</strong> ${dashboardData.strait_of_hormuz.pct_global_lng}%<br>
+                    <strong>Annual Value:</strong> $${dashboardData.strait_of_hormuz.annual_value_usd}
+                `);
+            hormuzMarker.addTo(map);
+        }
+
+        function initializeTimeline() {
+            const timelineContainer = d3.select("#timeline");
+
+            const margin = { top: 20, right: 40, bottom: 60, left: 40 };
+            const width = 1200 - margin.left - margin.right;
+            const height = 350 - margin.top - margin.bottom;
+
+            const svg = timelineContainer.append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom);
+
+            const g = svg.append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            // Parse dates
+            const parseTime = d3.timeParse("%Y-%m-%d");
+            const timeline = dashboardData.timeline.map(d => ({
+                ...d,
+                date: parseTime(d.date)
+            }));
+
+            // Scales
+            const xScale = d3.scaleTime()
+                .domain(d3.extent(timeline, d => d.date))
+                .range([0, width]);
+
+            const colorScale = {
+                military: "#FF3131",
+                diplomatic: "#00D4FF",
+                market: "#00FF41",
+                shipping: "#FFB000",
+                deadline: "#FF6B6B"
+            };
+
+            // Add timeline axis
+            g.append("g")
+                .attr("transform", `translate(0,${height})`)
+                .call(d3.axisBottom(xScale).tickFormat(d3.timeFormat("%m/%d")))
+                .selectAll("text")
+                .style("fill", "#FFB000")
+                .style("font-family", "JetBrains Mono");
+
+            // Add events
+            const events = g.selectAll(".timeline-event")
+                .data(timeline)
+                .enter().append("g")
+                .attr("class", "timeline-event")
+                .attr("transform", d => `translate(${xScale(d.date)},0)`);
+
+            events.append("circle")
+                .attr("cx", 0)
+                .attr("cy", height / 2)
+                .attr("r", d => d.severity === "critical" ? 8 : 6)
+                .attr("fill", d => colorScale[d.category] || "#666")
+                .attr("stroke", "#fff")
+                .attr("stroke-width", 2)
+                .attr("class", d => d.category === "deadline" ? "deadline-pulse" : "");
+
+            events.append("text")
+                .attr("x", 0)
+                .attr("y", d => Math.random() > 0.5 ? height / 2 - 15 : height / 2 + 25)
+                .attr("text-anchor", "middle")
+                .style("fill", "#ccc")
+                .style("font-size", "10px")
+                .style("font-family", "JetBrains Mono")
+                .text(d => d.event.length > 40 ? d.event.substring(0, 40) + "..." : d.event);
+        }
+
+        function loadScenarios() {
+            const scenariosContainer = document.getElementById('scenarios');
+
+            dashboardData.scenarios.forEach(scenario => {
+                const card = document.createElement('div');
+                card.className = 'scenario-card';
+                card.innerHTML = `
+                    <div class="scenario-header">
+                        <div class="scenario-name">${scenario.name}</div>
+                        <div class="scenario-probability">${scenario.probability}</div>
+                    </div>
+                    <div class="probability-bar">
+                        <div class="probability-fill" style="width: ${scenario.probability_val * 100}%"></div>
+                    </div>
+                    <p style="color: #ccc; font-size: 14px; margin: 15px 0;">${scenario.description}</p>
+                    <div class="market-impacts">
+                        <div class="impact-item">
+                            <span>BTC Impact:</span>
+                            <span class="negative">${scenario.market_impact.btc.range}</span>
+                        </div>
+                        <div class="impact-item">
+                            <span>Oil Impact:</span>
+                            <span class="positive">${scenario.market_impact.oil.range}</span>
+                        </div>
+                        <div class="impact-item">
+                            <span>Gold Impact:</span>
+                            <span class="positive">${scenario.market_impact.gold.range}</span>
+                        </div>
+                        <div style="margin-top: 15px; font-size: 12px; color: #666;">
+                            <strong>Precedent:</strong> ${scenario.precedent}
+                        </div>
+                    </div>
+                `;
+                scenariosContainer.appendChild(card);
+            });
+        }
+
+        function loadPredictions() {
+            const tbody = document.getElementById('predictions-table');
+
+            dashboardData.predictions.forEach(pred => {
+                const row = document.createElement('tr');
+                const confidenceClass = pred.confidence.toLowerCase().replace('-', '_');
+                row.innerHTML = `
+                    <td style="color: #ccc;">${pred.prediction}</td>
+                    <td class="confidence-${confidenceClass.split('_')[0]}">${pred.confidence}</td>
+                    <td style="color: #aaa;">${pred.timeframe}</td>
+                    <td style="color: ${pred.result ? '#00FF41' : '#666'};">
+                        ${pred.result || 'Pending...'}
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function loadOSINTAccounts() {
+            const osintContainer = document.getElementById('osint-grid');
+
+            Object.entries(dashboardData.osint_accounts).forEach(([category, accounts]) => {
+                const categoryDiv = document.createElement('div');
+                categoryDiv.className = 'osint-category';
+
+                const categoryTitle = category.replace(/_/g, ' ').toUpperCase();
+                categoryDiv.innerHTML = `<h3>${categoryTitle}</h3>`;
+
+                accounts.forEach(account => {
+                    const accountDiv = document.createElement('div');
+                    accountDiv.className = 'osint-account';
+                    accountDiv.innerHTML = `
+                        <a href="${account.url}" target="_blank">
+                            <span class="account-handle">${account.handle}</span>
+                        </a>
+                        <div class="account-focus">${account.focus}</div>
+                    `;
+                    categoryDiv.appendChild(accountDiv);
+                });
+
+                osintContainer.appendChild(categoryDiv);
+            });
+        }
+
+        async function fetchMarketData() {
+            try {
+                // BTC Price
+                const btcResponse = await fetch('https://api.binance.com/api/v3/ticker/24hr?symbol=BTCUSDT');
+                const btcData = await btcResponse.json();
+
+                document.getElementById('btc-price').textContent = `$${parseFloat(btcData.lastPrice).toLocaleString()}`;
+                document.getElementById('btc-change').textContent = `${btcData.priceChangePercent >= 0 ? '+' : ''}${parseFloat(btcData.priceChangePercent).toFixed(2)}%`;
+                document.getElementById('btc-change').className = `stat-change ${btcData.priceChangePercent >= 0 ? 'positive' : 'negative'}`;
+
+                // Funding Rate
+                const fundingResponse = await fetch('https://fapi.binance.com/fapi/v1/fundingRate?symbol=BTCUSDT&limit=1');
+                const fundingData = await fundingResponse.json();
+
+                if (fundingData.length > 0) {
+                    const fundingRate = (parseFloat(fundingData[0].fundingRate) * 100).toFixed(4);
+                    document.getElementById('funding-rate').textContent = `${fundingRate}%`;
+                    document.getElementById('funding-rate').className = `widget-value ${fundingRate >= 0 ? 'positive' : 'negative'}`;
+                    document.getElementById('funding-change').textContent = fundingRate >= 0 ? 'Longs paying' : 'Shorts paying';
+                }
+
+                // Open Interest
+                const oiResponse = await fetch('https://fapi.binance.com/fapi/v1/openInterest?symbol=BTCUSDT');
+                const oiData = await oiResponse.json();
+
+                const oi = (parseFloat(oiData.openInterest) / 1000).toFixed(1);
+                document.getElementById('open-interest').textContent = `${oi}K BTC`;
+                document.getElementById('open-interest').className = 'widget-value positive';
+
+                // Long/Short Ratio
+                const lsResponse = await fetch('https://fapi.binance.com/futures/data/globalLongShortAccountRatio?symbol=BTCUSDT&period=1h&limit=1');
+                const lsData = await lsResponse.json();
+
+                if (lsData.length > 0) {
+                    const ratio = parseFloat(lsData[0].longShortRatio).toFixed(2);
+                    document.getElementById('long-short-ratio').textContent = ratio;
+                    document.getElementById('long-short-ratio').className = `widget-value ${ratio > 1 ? 'positive' : 'negative'}`;
+                    document.getElementById('ls-change').textContent = ratio > 1 ? 'Long bias' : 'Short bias';
+                }
+
+            } catch (error) {
+                console.error('Error fetching market data:', error);
+                // Show loading indicators on error
+                ['btc-price', 'funding-rate', 'open-interest', 'long-short-ratio'].forEach(id => {
+                    const element = document.getElementById(id);
+                    if (element && element.textContent === 'Loading...') {
+                        element.innerHTML = '<span class="loading"></span>';
+                    }
+                });
+            }
+        }
+
+        // Auto-refresh page every 5 minutes
+        setTimeout(() => {
+            location.reload();
+        }, 300000);
+
+        console.log('🚨 Iran Intelligence Dashboard loaded successfully');
+        console.log('📡 Radio Świętego Satoshiego × Arasaka Netrunners');
+        console.log('⚠️ DEFCON 2 - Armed Forces Ready to Deploy in 6 hours');
+    </script>
+</body>
+</html>
